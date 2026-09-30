@@ -67,25 +67,6 @@ func UpdateFixtures() {
 	}
 }
 
-func getOddsApiOdds(odds external.OddsApiFixture, name string) (string, float32, string, float32) {
-	homeTeam := ""
-	awayTeam := ""
-	var home float32 = 0.0
-	var away float32 = 0.0
-
-	if len(odds.Bookmakers) == 0 {
-		slog.Warn("OddsApi: No bookmakers", "fixture", name)
-		return homeTeam, home, awayTeam, away
-	} 
-
-	outcomes := odds.Bookmakers[0].Markets[0].Outcomes
-
-	homeTeam = outcomes[0].Name
-	awayTeam = outcomes[1].Name
-	home = outcomes[0].Price
-	away = outcomes[1].Price
-	return homeTeam, home, awayTeam, away
-}
 
 func getSportmonksOdds(s models.SportmonksFixture) (string ,float64, string, float64) {
 	var err error
@@ -144,12 +125,11 @@ func CompareSportmonksAndOdds() {
 		var oAwayOdds float32 = 0.0
 
 		for _, o := range odds {
-
 			if sTime != o.CommenceTime {
 				continue
 			}
 
-			oH, oHO, oA, oAO := getOddsApiOdds(o, s.Name)
+			oH, oHO, oA, oAO := o.CalculateOdds(s.Name)
 
 			// odds doesn't sort based off home field
 			if sHome == oA {

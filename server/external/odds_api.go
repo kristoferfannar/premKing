@@ -12,7 +12,7 @@ import (
 
 
 func createOddsUrl(apiKey string) string {
-	return fmt.Sprintf("https://api.the-odds-api.com/v4/sports/soccer_epl/odds?bookmakers=betsson&apiKey=%s", apiKey)
+	return fmt.Sprintf("https://api.the-odds-api.com/v4/sports/soccer_epl/odds?regions=eu&apiKey=%s", apiKey)
 }
 
 func createOddsRequest() *http.Request {
@@ -88,6 +88,40 @@ func FetchOdds() []OddsApiFixture{
 	os.Symlink(filename, "odds.json")
 
 	return resp
+}
+
+func (odds *OddsApiFixture) CalculateOdds(name string) (string, float32, string, float32) {
+	homeTeam := ""
+	awayTeam := ""
+	var home float32 = 0.0
+	var away float32 = 0.0
+	found := 0
+
+	if len(odds.Bookmakers) == 0 {
+		slog.Warn("OddsApi: No bookmakers", "fixture", name)
+		return homeTeam, home, awayTeam, away
+	}
+
+	for _, bookmaker := range odds.Bookmakers {
+		for _, market := range bookmaker.Markets {
+			if market.Key != "h2h" {
+				continue
+			}
+			found += 1
+			h2h := market.Outcomes
+			homeTeam = h2h[0].Name
+			awayTeam = h2h[1].Name
+			home += h2h[0].Price
+			away += h2h[1].Price
+		}
+	}
+
+	if found > 0 {
+		home = home / float32(found)
+		away = away / float32(found)
+	}
+
+	return homeTeam, home, awayTeam, away
 }
 
 
