@@ -22,6 +22,8 @@ func main() {
 	initializers.Logging(env)
 	initializers.ConnectDB()
 
+	crons.CompareSportmonksAndOdds()
+
 	// SendNotification("test@test.com")
 	// AddBetsForUser()
 	// ShortenFixtureNames()
@@ -31,8 +33,11 @@ func main() {
 	// ChangeGWTimes()
 	// AddOddsAndWonToBets()
 	// RecalculateBetsForGameweek()
+	// SeedTeamsFromJSON("teams.json")
+	// SeedFixturesFromJSON("fixtures.json")
+	// initializers.MigrateGameweeksToDB(initializers.DB)
 
-	NEWSEASON()
+	// NEWSEASON()
 }
 
 func NEWSEASON() {

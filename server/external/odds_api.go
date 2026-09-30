@@ -84,6 +84,8 @@ func FetchOdds() []OddsApiFixture{
 	filename := fmt.Sprintf("odds-%s.json", time.Now().Format("2006-01-02_15-04-05"))
 	slog.Info("wrote new OddsApi data", "filename", filename)
 	os.WriteFile(filename, bytes, 0644)
+	os.Remove("odds.json")
+	os.Symlink(filename, "odds.json")
 
 	return resp
 }

@@ -1,6 +1,7 @@
 package crons
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -66,100 +67,128 @@ func UpdateFixtures() {
 	}
 }
 
+func getOddsApiOdds(odds external.OddsApiFixture, name string) (string, float32, string, float32) {
+	homeTeam := ""
+	awayTeam := ""
+	var home float32 = 0.0
+	var away float32 = 0.0
+
+	if len(odds.Bookmakers) == 0 {
+		slog.Warn("OddsApi: No bookmakers", "fixture", name)
+		return homeTeam, home, awayTeam, away
+	} 
+
+	outcomes := odds.Bookmakers[0].Markets[0].Outcomes
+
+	homeTeam = outcomes[0].Name
+	awayTeam = outcomes[1].Name
+	home = outcomes[0].Price
+	away = outcomes[1].Price
+	return homeTeam, home, awayTeam, away
+}
+
+func getSportmonksOdds(s models.SportmonksFixture) (string ,float64, string, float64) {
+	var err error
+	var sHomeOdds float64 = 0.0
+	var sAwayOdds float64 = 0.0
+	for _, odd := range s.Odds {
+		if odd.OriginalLabel == "1" {
+			sHomeOdds, err = strconv.ParseFloat(odd.Value, 64)
+			if err != nil {
+				panic("error converting string to float")
+			}
+		}
+		if odd.OriginalLabel == "2" {
+			sAwayOdds, err = strconv.ParseFloat(odd.Value, 64)
+			if err != nil {
+				panic("error converting string to float")
+			}
+		}
+	}
+
+	names := strings.Split(s.Name, " vs ")
+	if len(names) != 2 {
+		panic("expected two team names")
+	}
+	sHome := names[0]
+	sAway := names[1]
+
+	return sHome, sHomeOdds, sAway, sAwayOdds
+}
+
 func CompareSportmonksAndOdds() {
-	// var err error
 	slog.Info("Comparing OddsApi and Sportmonks")
 
-	// sBytes, err := os.ReadFile("sportmonks.json")
-	// if err != nil { panic("bad") }
-	// var sportmonks []models.SportmonksFixture
-	// err = json.Unmarshal(sBytes, &sportmonks)
-	// if err != nil { panic("bad") }
-	sportmonks := external.FetchSportmonksFixtures()
+	sBytes, err := os.ReadFile("sportmonks.json")
+	if err != nil { panic("bad") }
+	var sportmonks []models.SportmonksFixture
+	err = json.Unmarshal(sBytes, &sportmonks)
+	if err != nil { panic("bad") }
+	// sportmonks := external.FetchSportmonksFixtures()
 
-	// oBytes, err := os.ReadFile("odds.json")
-	// if err != nil { panic("bad") }
-	// var odds []external.OddsApiFixture
-	// err = json.Unmarshal(oBytes, &odds)
-	// if err != nil { panic("bad") }
-	odds := external.FetchOdds()
+	oBytes, err := os.ReadFile("odds.json")
+	if err != nil { panic("bad") }
+	var odds []external.OddsApiFixture
+	err = json.Unmarshal(oBytes, &odds)
+	if err != nil { panic("bad") }
+	// odds := external.FetchOdds()
 
 	for _, s := range sportmonks {
-		for _, o := range odds {
+		sTime, err := time.Parse( "2006-01-02 15:04:05", s.StartingAt)
+		if err != nil {
+			panic(fmt.Sprintf("bad time parse: err: %s", err.Error()))
+		}
+		sHome, sHomeOdds, sAway, sAwayOdds := getSportmonksOdds(s)
 
-			// 2026-09-19 14:00:00
-			sTime, err := time.Parse( "2006-01-02 15:04:05", s.StartingAt)
-			if err != nil {
-				panic(fmt.Sprintf("bad time parse: err: %s", err.Error()))
-			}
+		var oHomeOdds float32 = 0.0
+		var oAwayOdds float32 = 0.0
+
+		for _, o := range odds {
 
 			if sTime != o.CommenceTime {
 				continue
 			}
 
-			names := strings.Split(s.Name, " vs ")
-			if len(names) != 2 {
-				panic("expected two team names")
-			}
-			sHome := names[0]
-			sAway := names[1]
-
-			if len(o.Bookmakers) == 0 {
-				slog.Warn("OddsApi: No bookmakers", "fixture", s.Name)
-				continue
-			}
-
-			outcomes := o.Bookmakers[0].Markets[0].Outcomes
-			oHome := outcomes[0].Name
-			oAway := outcomes[1].Name
-			oHomeOdds := outcomes[0].Price
-			oAwayOdds := outcomes[1].Price
+			oH, oHO, oA, oAO := getOddsApiOdds(o, s.Name)
 
 			// odds doesn't sort based off home field
-			if sHome == oAway {
-				tmp := oHome
-				oHome = oAway
-				oAway = tmp
+			if sHome == oA {
+				tmp := oH
+				oH= oA
+				oA= tmp
 
-				tmpOdds := oHomeOdds
-				oHomeOdds = oAwayOdds
-				oAwayOdds = tmpOdds
+				tmpOdds := oHO
+				oHO = oAO
+				oAO = tmpOdds
 			}
 
-			if sHome == oHome && sAway == oAway {
-				sHomeOdds := 0.0
-				sAwayOdds := 0.0
-				for _, odd := range s.Odds {
-					if odd.OriginalLabel == "1" {
-						sHomeOdds, err = strconv.ParseFloat(odd.Value, 64)
-						if err != nil {
-							panic("error converting string to float")
-						}
-					}
-					if odd.OriginalLabel == "2" {
-						sAwayOdds, err = strconv.ParseFloat(odd.Value, 64)
-						if err != nil {
-							panic("error converting string to float")
-						}
-					}
-				}
-
-				s1 := fmt.Sprintf("%s: %s vs %s", s.StartingAt, sHome, sAway)
-				s3 := fmt.Sprintf("  Sportmonks: %.2f vs %.2f", sHomeOdds, sAwayOdds)
-				s4 := fmt.Sprintf("        Odds: %.2f vs %.2f", oHomeOdds, oAwayOdds)
-
-				fmt.Println(s1)
-				fmt.Println(s3)
-				fmt.Println(s4)
-
-				slog.Info(s1)
-				slog.Info(s3)
-				slog.Info(s4)
-
+			if sHome == oH && sAway == oA {
+				oHomeOdds = oHO
+				oAwayOdds = oAO
 				break
 			}
 
 		}
+
+		// print all games in the next two weeks
+		latest := time.Now().Add(21 * 24 * time.Hour)
+		earliest := time.Now().Add(-0 * 24 * time.Hour)
+
+		if !(sTime.After(earliest) && sTime.Before(latest)) {
+			continue
+		}
+
+		s1 := fmt.Sprintf("%s: %s vs %s", s.StartingAt, sHome, sAway)
+		s3 := fmt.Sprintf("  Sportmonks: %.2f vs %.2f", sHomeOdds, sAwayOdds)
+		s4 := fmt.Sprintf("        Odds: %.2f vs %.2f", oHomeOdds, oAwayOdds)
+
+		fmt.Println(s1)
+		fmt.Println(s3)
+		fmt.Println(s4)
+
+		slog.Info(s1)
+		slog.Info(s3)
+		slog.Info(s4)
 	}
 }
 

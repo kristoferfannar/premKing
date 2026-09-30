@@ -51,7 +51,8 @@ func FetchSportmonksFixtures() []models.SportmonksFixture {
 	filename := fmt.Sprintf("sportmonks-%s.json", time.Now().Format("2006-01-02_15-04-05"))
 	slog.Info("wrote new sportmonks data", "filename", filename)
 	os.WriteFile(filename, bytes, 0644)
-
+	os.Remove("sportmonks.json")
+	os.Symlink(filename, "sportmonks.json")
 
 	return fixtures
 }
