@@ -61,7 +61,7 @@ func Test_CalculateOdds_MultipleBookmakers(t *testing.T) {
 		t.Fatalf("expected 21 bookmakers, got %d", len(fixture.Bookmakers))
 	}
 
-	homeTeam, homeAvg, awayTeam, awayAvg := fixture.CalculateOdds("Arsenal vs Leeds United")
+	homeTeam, homeAvg, awayTeam, awayAvg, _ := fixture.CalculateOdds("Arsenal vs Leeds United")
 
 	if homeTeam != "Arsenal" {
 		t.Fatalf("expected home team Arsenal, got %s", homeTeam)

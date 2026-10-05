@@ -90,16 +90,17 @@ func FetchOdds() []OddsApiFixture{
 	return resp
 }
 
-func (odds *OddsApiFixture) CalculateOdds(name string) (string, float32, string, float32) {
+func (odds *OddsApiFixture) CalculateOdds(name string) (string, float32, string, float32, float32) {
 	homeTeam := ""
 	awayTeam := ""
 	var home float32 = 0.0
+	var draw float32 = 0.0
 	var away float32 = 0.0
 	found := 0
 
 	if len(odds.Bookmakers) == 0 {
 		slog.Warn("OddsApi: No bookmakers", "fixture", name)
-		return homeTeam, home, awayTeam, away
+		return homeTeam, home, awayTeam, away, draw
 	}
 
 	for _, bookmaker := range odds.Bookmakers {
@@ -113,6 +114,7 @@ func (odds *OddsApiFixture) CalculateOdds(name string) (string, float32, string,
 			awayTeam = h2h[1].Name
 			home += h2h[0].Price
 			away += h2h[1].Price
+			draw += h2h[2].Price
 		}
 	}
 
@@ -121,7 +123,7 @@ func (odds *OddsApiFixture) CalculateOdds(name string) (string, float32, string,
 		away = away / float32(found)
 	}
 
-	return homeTeam, home, awayTeam, away
+	return homeTeam, home, awayTeam, away, draw
 }
 
 
@@ -144,4 +146,10 @@ type OddsApiBookmaker struct {
 type OddsApiFixture struct {
 	CommenceTime time.Time `json:"commence_time"`
 	Bookmakers []OddsApiBookmaker `json:"bookmakers"`
+}
+
+type OddsApiOddsFixture struct {
+	CommenceTime time.Time
+	Bookmakers []OddsApiBookmaker
+
 }

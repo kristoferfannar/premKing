@@ -13,10 +13,10 @@ func CRON() {
 	// no need to do anything here
 
 	// Runs every hour
-	c.AddFunc("0 * * * *", UpdateFixtures)
+	// c.AddFunc("0 * * * *", UpdateFixtures)
 
 	// Runs every midnight
-	c.AddFunc("0 0 * * *", CompareSportmonksAndOdds)
+	c.AddFunc("0 0 * * *", UpdateFixturesOdds)
 
 	c.Start()
 

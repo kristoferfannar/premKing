@@ -84,3 +84,15 @@ type SportmonksScore struct {
 	Home int `json:"home"`
 	Away int `json:"away"`
 }
+
+// OddsApi
+type OddsApiOdd struct {
+	Name  string
+	Price float32
+}
+
+type OddsAPIFixture struct {
+	Name string
+	CommenceTime time.Time
+	Odds []OddsApiOdd
+}

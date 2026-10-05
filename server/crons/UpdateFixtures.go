@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -14,6 +15,92 @@ import (
 	"github.com/kristo-og-logi/premKing/server/models"
 	"github.com/kristo-og-logi/premKing/server/repositories"
 )
+
+func fetchOddsApiOdds() []models.OddsAPIFixture {
+	fixtures := external.FetchOdds()
+	out := make([]models.OddsAPIFixture, 0, len(fixtures))
+
+	for _, f := range fixtures {
+		homeTeam, homeOdds, awayTeam, awayOdds, drawOdds := f.CalculateOdds("")
+		homeTeam = OddsTeamToSportmonksTeamName(homeTeam)
+		awayTeam = OddsTeamToSportmonksTeamName(awayTeam)
+
+		out = append(out, models.OddsAPIFixture{
+			Name: fmt.Sprintf("%s vs %s", homeTeam, awayTeam),
+			CommenceTime: f.CommenceTime,
+			Odds: []models.OddsApiOdd{
+				{
+					Name: homeTeam,
+					Price: homeOdds,
+				},
+				{
+					Name: awayTeam,
+					Price: awayOdds,
+				},
+				{
+					Name: "X",
+					Price: drawOdds,
+				},
+			},
+		})
+	}
+
+	return out
+}
+
+func UpdateFixturesOdds() {
+	dbFixtures := getFixturesFromDB()
+	fixtures := fetchOddsApiOdds()
+
+	// print all games in the next two weeks -ish
+	latest := time.Now().Add(21 * 24 * time.Hour)
+	earliest := time.Now().Add(-0 * 24 * time.Hour)
+
+	sort.Slice(dbFixtures, func(i, j int) bool {
+		return dbFixtures[i].MatchDate.Before(dbFixtures[j].MatchDate)
+	})
+
+	for _, dbfix := range dbFixtures {
+		// let's only consider fixtures within the current time range
+		if !(dbfix.MatchDate.After(earliest) && dbfix.MatchDate.Before(latest)) {
+			continue
+		}
+
+		names := strings.Split(dbfix.LongName, " vs ")
+		if len(names) != 2 {
+			continue
+		}
+		dbHome, dbAway := names[0], names[1]
+
+		for _, fix := range fixtures {
+			if fix.Name != dbfix.LongName {
+				continue
+			}
+			var oddsHome, oddsAway float32
+			for _, o := range fix.Odds {
+				if o.Name == dbHome {
+					oddsHome = o.Price
+			  	}
+			  	if o.Name == dbAway {
+					oddsAway = o.Price
+			  	}
+			}
+			s1 := fmt.Sprintf("%s: %s", fix.CommenceTime, fix.Name)
+			s2 := fmt.Sprintf("  DB:   %.2f vs %.2f", dbfix.HomeOdds, dbfix.AwayOdds)
+			s3 := fmt.Sprintf("  Odds: %.2f vs %.2f", oddsHome, oddsAway)
+
+			fmt.Println(s1)
+			fmt.Println(s2)
+			fmt.Println(s3)
+
+			slog.Info(s1)
+			slog.Info(s2)
+			slog.Info(s3)
+
+			break
+		}
+	}
+}
 
 // Compares all fixtures between Sportmonks and DB
 // Tries to update their dates, odds or status.
@@ -129,7 +216,7 @@ func CompareSportmonksAndOdds() {
 				continue
 			}
 
-			oH, oHO, oA, oAO := o.CalculateOdds(s.Name)
+			oH, oHO, oA, oAO, _ := o.CalculateOdds(s.Name)
 
 			// odds doesn't sort based off home field
 			if sHome == oA {
