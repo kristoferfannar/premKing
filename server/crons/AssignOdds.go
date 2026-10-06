@@ -38,3 +38,15 @@ func AssignOdds(dbFixture models.Fixture, jsonFixture models.SportmonksFixture) 
 	updated = true
 	return
 }
+
+func AssignOddsApiOdds(dbFixture models.Fixture, homeOdds float32, drawOdds float32, awayOdds float32) (updated bool) {
+	updated = false
+	// no need to reassign odds
+	if dbFixture.AwayOdds >= 0.1 || dbFixture.HomeOdds >= 0.1 || dbFixture.DrawOdds >= 0.1 {
+		return
+	}
+
+	initializers.DB.Model(&dbFixture).Updates(models.Fixture{HomeOdds: homeOdds, DrawOdds: drawOdds, AwayOdds: awayOdds})
+	updated = true
+	return
+}

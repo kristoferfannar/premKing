@@ -16,7 +16,8 @@ func CRON() {
 	// c.AddFunc("0 * * * *", UpdateFixtures)
 
 	// Runs every midnight
-	c.AddFunc("0 0 * * *", UpdateFixturesOdds)
+	c.AddFunc("0 12-22/2 * * *", UpdateFixturesOdds)
+	go UpdateFixturesOdds() // just to test
 
 	c.Start()
 

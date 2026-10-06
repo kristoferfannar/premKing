@@ -43,6 +43,41 @@ func UpdateStatusAndScores(dbFixture models.Fixture, jsonFixture models.Sportmon
 	return
 }
 
+// TODO
+func UpdateOddsApiStatusAndScores(dbFixture models.Fixture, jsonFixture models.SportmonksFixture) (updated bool) {
+	updated = false
+
+	if jsonFixture.State == "FT" && !dbFixture.Finished {
+
+		result := ""
+		if jsonFixture.Score.Home > jsonFixture.Score.Away {
+			result = "1"
+		} else if jsonFixture.Score.Home < jsonFixture.Score.Away {
+			result = "2"
+		} else {
+			result = "X"
+		}
+
+		dbFixture.Finished = true
+		dbFixture.HomeGoals = uint8(jsonFixture.Score.Home)
+		dbFixture.AwayGoals = uint8(jsonFixture.Score.Away)
+		dbFixture.Result = result
+
+		response := initializers.DB.Save(&dbFixture)
+
+		UpdateBetsByFixture(&dbFixture)
+
+		if response.Error != nil {
+			fmt.Printf("error saving new status and score to fixture: %s", response.Error.Error())
+			return
+		}
+
+		updated = true
+	}
+
+	return
+}
+
 func UpdateBetsByFixture(dbFix *models.Fixture) {
 	updated := 0
 	bets, err := repositories.GetBetsByFixtureId(dbFix.ID)

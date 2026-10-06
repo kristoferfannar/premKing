@@ -2,6 +2,7 @@ package crons
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/kristo-og-logi/premKing/server/initializers"
@@ -20,6 +21,17 @@ func UpdateDate(dbFixture models.Fixture, jsonFixture models.SportmonksFixture) 
 	if jsonTime.Compare(dbFixture.MatchDate) != 0 {
 		fmt.Printf("%s | from %s to %s\n", dbFixture.Name, dbFixture.MatchDate, jsonTime)
 		initializers.DB.Model(&dbFixture).Updates(models.Fixture{MatchDate: jsonTime})
+		updated = true
+	}
+	return
+}
+
+func UpdateOddsApiDate(dbFixture models.Fixture, commenceTime time.Time) (updated bool) {
+	updated = false
+
+	if commenceTime.Compare(dbFixture.MatchDate) != 0 {
+		slog.Info("%s | from %s to %s\n", dbFixture.Name, dbFixture.MatchDate, commenceTime)
+		initializers.DB.Model(&dbFixture).Updates(models.Fixture{MatchDate: commenceTime})
 		updated = true
 	}
 	return

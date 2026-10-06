@@ -91,7 +91,7 @@ type OddsApiOdd struct {
 	Price float32
 }
 
-type OddsAPIFixture struct {
+type OddsApiFixture struct {
 	Name string
 	CommenceTime time.Time
 	Odds []OddsApiOdd

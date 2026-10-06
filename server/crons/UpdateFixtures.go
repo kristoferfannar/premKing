@@ -16,16 +16,16 @@ import (
 	"github.com/kristo-og-logi/premKing/server/repositories"
 )
 
-func fetchOddsApiOdds() []models.OddsAPIFixture {
+func fetchOddsApiOdds() []models.OddsApiFixture {
 	fixtures := external.FetchOdds()
-	out := make([]models.OddsAPIFixture, 0, len(fixtures))
+	out := make([]models.OddsApiFixture, 0, len(fixtures))
 
 	for _, f := range fixtures {
 		homeTeam, homeOdds, awayTeam, awayOdds, drawOdds := f.CalculateOdds("")
 		homeTeam = OddsTeamToSportmonksTeamName(homeTeam)
 		awayTeam = OddsTeamToSportmonksTeamName(awayTeam)
 
-		out = append(out, models.OddsAPIFixture{
+		out = append(out, models.OddsApiFixture{
 			Name: fmt.Sprintf("%s vs %s", homeTeam, awayTeam),
 			CommenceTime: f.CommenceTime,
 			Odds: []models.OddsApiOdd{
@@ -49,6 +49,10 @@ func fetchOddsApiOdds() []models.OddsAPIFixture {
 }
 
 func UpdateFixturesOdds() {
+	slog.Info("Fetching fixtures for updates")
+	gwsChanged := map[uint8]bool{}
+	var totalOddsUpdated, totalDatesUpdated, totalStatusScoreUpdated, matches int = 0, 0, 0, 0
+
 	dbFixtures := getFixturesFromDB()
 	fixtures := fetchOddsApiOdds()
 
@@ -60,7 +64,10 @@ func UpdateFixturesOdds() {
 		return dbFixtures[i].MatchDate.Before(dbFixtures[j].MatchDate)
 	})
 
+
 	for _, dbfix := range dbFixtures {
+		matchFound := false
+
 		// let's only consider fixtures within the current time range
 		if !(dbfix.MatchDate.After(earliest) && dbfix.MatchDate.Before(latest)) {
 			continue
@@ -76,22 +83,33 @@ func UpdateFixturesOdds() {
 			if fix.Name != dbfix.LongName {
 				continue
 			}
-			var oddsHome, oddsAway float32
+			matchFound = true
+
+			var oddsHome, oddsDraw, oddsAway float32
 			for _, o := range fix.Odds {
 				if o.Name == dbHome {
 					oddsHome = o.Price
-			  	}
-			  	if o.Name == dbAway {
+			  	} else if o.Name == dbAway {
 					oddsAway = o.Price
-			  	}
+			  	} else {
+					oddsDraw = o.Price
+				}
 			}
+
+			if AssignOddsApiOdds(dbfix, oddsHome, oddsDraw, oddsAway) {
+				totalOddsUpdated++
+			}
+			if UpdateOddsApiDate(dbfix, fix.CommenceTime) {
+				totalDatesUpdated++
+				gwsChanged[dbfix.GameWeek] = true
+			}
+			// if UpdateStatusAndScores() {
+			// 	totalStatusScoreUpdated++
+			// }
+
 			s1 := fmt.Sprintf("%s: %s", fix.CommenceTime, fix.Name)
 			s2 := fmt.Sprintf("  DB:   %.2f vs %.2f", dbfix.HomeOdds, dbfix.AwayOdds)
 			s3 := fmt.Sprintf("  Odds: %.2f vs %.2f", oddsHome, oddsAway)
-
-			fmt.Println(s1)
-			fmt.Println(s2)
-			fmt.Println(s3)
 
 			slog.Info(s1)
 			slog.Info(s2)
@@ -99,6 +117,24 @@ func UpdateFixturesOdds() {
 
 			break
 		}
+
+		if !matchFound {
+			slog.Warn("No match found for API fixture", "longName", dbfix.LongName, "ID", dbfix.ID)
+		}
+	}
+
+	slog.Info("%d matches found!", matches)
+	slog.Info("Updated %d odds", totalOddsUpdated)
+	slog.Info("Updated %d dates", totalDatesUpdated)
+	slog.Info("Updated %d statuses", totalStatusScoreUpdated)
+
+	// If any dates are updated,
+	// it might affect when the gameweeks start
+	if totalDatesUpdated > 0 {
+		slog.Info("gws changed: %+v", gwsChanged)
+		slog.Info("Fixture dates updated... checking for gw updates")
+		FindAndSaveNormalFixtures() // we updated a fixture's date, we must check to see whether its normal status has changed
+		ChangeGWTimes()
 	}
 }
 
