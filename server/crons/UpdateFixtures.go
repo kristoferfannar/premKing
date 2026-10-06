@@ -26,19 +26,19 @@ func fetchOddsApiOdds() []models.OddsApiFixture {
 		awayTeam = OddsTeamToSportmonksTeamName(awayTeam)
 
 		out = append(out, models.OddsApiFixture{
-			Name: fmt.Sprintf("%s vs %s", homeTeam, awayTeam),
+			Name:         fmt.Sprintf("%s vs %s", homeTeam, awayTeam),
 			CommenceTime: f.CommenceTime,
 			Odds: []models.OddsApiOdd{
 				{
-					Name: homeTeam,
+					Name:  homeTeam,
 					Price: homeOdds,
 				},
 				{
-					Name: awayTeam,
+					Name:  awayTeam,
 					Price: awayOdds,
 				},
 				{
-					Name: "X",
+					Name:  "X",
 					Price: drawOdds,
 				},
 			},
@@ -64,7 +64,6 @@ func UpdateFixturesOdds() {
 		return dbFixtures[i].MatchDate.Before(dbFixtures[j].MatchDate)
 	})
 
-
 	for _, dbfix := range dbFixtures {
 		matchFound := false
 
@@ -73,14 +72,14 @@ func UpdateFixturesOdds() {
 			continue
 		}
 
-		names := strings.Split(dbfix.LongName, " vs ")
-		if len(names) != 2 {
+		dbNames := strings.Split(dbfix.LongName, " vs ")
+		if len(dbNames) != 2 {
 			continue
 		}
-		dbHome, dbAway := names[0], names[1]
+		dbHome, dbAway := dbNames[0], dbNames[1]
 
 		for _, fix := range fixtures {
-			if fix.Name != dbfix.LongName {
+			if fix.Name != dbfix.LongName && fix.Name != fmt.Sprintf("%s vs %s", dbAway, dbHome) {
 				continue
 			}
 			matchFound = true
@@ -89,9 +88,9 @@ func UpdateFixturesOdds() {
 			for _, o := range fix.Odds {
 				if o.Name == dbHome {
 					oddsHome = o.Price
-			  	} else if o.Name == dbAway {
+				} else if o.Name == dbAway {
 					oddsAway = o.Price
-			  	} else {
+				} else {
 					oddsDraw = o.Price
 				}
 			}
@@ -119,19 +118,19 @@ func UpdateFixturesOdds() {
 		}
 
 		if !matchFound {
-			slog.Warn("No match found for API fixture", "longName", dbfix.LongName, "ID", dbfix.ID)
+			slog.Warn("No match found for API fixture", "MatchDate", dbfix.MatchDate, "longName", dbfix.LongName, "ID", dbfix.ID)
 		}
 	}
 
-	slog.Info("%d matches found!", matches)
-	slog.Info("Updated %d odds", totalOddsUpdated)
-	slog.Info("Updated %d dates", totalDatesUpdated)
-	slog.Info("Updated %d statuses", totalStatusScoreUpdated)
+	slog.Info(fmt.Sprintf("%d matches found!", matches))
+	slog.Info(fmt.Sprintf("Updated %d odds", totalOddsUpdated))
+	slog.Info(fmt.Sprintf("Updated %d dates", totalDatesUpdated))
+	slog.Info(fmt.Sprintf("Updated %d statuses", totalStatusScoreUpdated))
 
 	// If any dates are updated,
 	// it might affect when the gameweeks start
 	if totalDatesUpdated > 0 {
-		slog.Info("gws changed: %+v", gwsChanged)
+		slog.Info(fmt.Sprintf("gws changed: %+v", gwsChanged))
 		slog.Info("Fixture dates updated... checking for gw updates")
 		FindAndSaveNormalFixtures() // we updated a fixture's date, we must check to see whether its normal status has changed
 		ChangeGWTimes()
@@ -190,8 +189,7 @@ func UpdateFixtures() {
 	}
 }
 
-
-func getSportmonksOdds(s models.SportmonksFixture) (string ,float64, string, float64) {
+func getSportmonksOdds(s models.SportmonksFixture) (string, float64, string, float64) {
 	var err error
 	var sHomeOdds float64 = 0.0
 	var sAwayOdds float64 = 0.0
@@ -224,21 +222,29 @@ func CompareSportmonksAndOdds() {
 	slog.Info("Comparing OddsApi and Sportmonks")
 
 	sBytes, err := os.ReadFile("sportmonks.json")
-	if err != nil { panic("bad") }
+	if err != nil {
+		panic("bad")
+	}
 	var sportmonks []models.SportmonksFixture
 	err = json.Unmarshal(sBytes, &sportmonks)
-	if err != nil { panic("bad") }
+	if err != nil {
+		panic("bad")
+	}
 	// sportmonks := external.FetchSportmonksFixtures()
 
 	oBytes, err := os.ReadFile("odds.json")
-	if err != nil { panic("bad") }
+	if err != nil {
+		panic("bad")
+	}
 	var odds []external.OddsApiFixture
 	err = json.Unmarshal(oBytes, &odds)
-	if err != nil { panic("bad") }
+	if err != nil {
+		panic("bad")
+	}
 	// odds := external.FetchOdds()
 
 	for _, s := range sportmonks {
-		sTime, err := time.Parse( "2006-01-02 15:04:05", s.StartingAt)
+		sTime, err := time.Parse("2006-01-02 15:04:05", s.StartingAt)
 		if err != nil {
 			panic(fmt.Sprintf("bad time parse: err: %s", err.Error()))
 		}
@@ -257,8 +263,8 @@ func CompareSportmonksAndOdds() {
 			// odds doesn't sort based off home field
 			if sHome == oA {
 				tmp := oH
-				oH= oA
-				oA= tmp
+				oH = oA
+				oA = tmp
 
 				tmpOdds := oHO
 				oHO = oAO
@@ -297,18 +303,18 @@ func CompareSportmonksAndOdds() {
 
 func OddsTeamToSportmonksTeamName(oddsName string) string {
 	mp := map[string]string{
-		 "Bournemouth": "AFC Bournemouth",
-		 "Brighton and Hove Albion": "Brighton & Hove Albion",
-	 }
+		"Bournemouth":              "AFC Bournemouth",
+		"Brighton and Hove Albion": "Brighton & Hove Albion",
+	}
 
-	 lookup := mp[oddsName]
+	lookup := mp[oddsName]
 
-	 if lookup == "" {
-		 // identity function
-		 return oddsName
-	 }
+	if lookup == "" {
+		// identity function
+		return oddsName
+	}
 
-	 return lookup
+	return lookup
 }
 
 // FindNormalFixtures groups and saves all fixtures
